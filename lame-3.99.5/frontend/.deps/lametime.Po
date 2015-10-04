@@ -1,0 +1,33 @@
+lametime.o: lametime.c ../config.h c:\mingw\include\assert.h \
+ c:\mingw\include\_mingw.h c:\mingw\include\stdio.h \
+ c:\mingw\lib\gcc\mingw32\4.8.1\include\stddef.h \
+ c:\mingw\lib\gcc\mingw32\4.8.1\include\stdarg.h \
+ c:\mingw\include\sys\types.h c:\mingw\include\time.h lametime.h \
+ ../include/lame.h c:\mingw\include\sys\timeb.h c:\mingw\include\io.h \
+ c:\mingw\include\fcntl.h
+
+../config.h:
+
+c:\mingw\include\assert.h:
+
+c:\mingw\include\_mingw.h:
+
+c:\mingw\include\stdio.h:
+
+c:\mingw\lib\gcc\mingw32\4.8.1\include\stddef.h:
+
+c:\mingw\lib\gcc\mingw32\4.8.1\include\stdarg.h:
+
+c:\mingw\include\sys\types.h:
+
+c:\mingw\include\time.h:
+
+lametime.h:
+
+../include/lame.h:
+
+c:\mingw\include\sys\timeb.h:
+
+c:\mingw\include\io.h:
+
+c:\mingw\include\fcntl.h:

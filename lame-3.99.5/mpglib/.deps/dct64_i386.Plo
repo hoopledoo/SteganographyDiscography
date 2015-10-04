@@ -1,0 +1,37 @@
+dct64_i386.lo: dct64_i386.c ../config.h dct64_i386.h common.h mpg123.h \
+ c:\mingw\include\stdio.h c:\mingw\include\_mingw.h \
+ c:\mingw\lib\gcc\mingw32\4.8.1\include\stddef.h \
+ c:\mingw\lib\gcc\mingw32\4.8.1\include\stdarg.h \
+ c:\mingw\include\sys\types.h c:\mingw\include\string.h \
+ c:\mingw\include\signal.h c:\mingw\include\math.h mpglib.h \
+ ../include/lame.h tabinit.h
+
+../config.h:
+
+dct64_i386.h:
+
+common.h:
+
+mpg123.h:
+
+c:\mingw\include\stdio.h:
+
+c:\mingw\include\_mingw.h:
+
+c:\mingw\lib\gcc\mingw32\4.8.1\include\stddef.h:
+
+c:\mingw\lib\gcc\mingw32\4.8.1\include\stdarg.h:
+
+c:\mingw\include\sys\types.h:
+
+c:\mingw\include\string.h:
+
+c:\mingw\include\signal.h:
+
+c:\mingw\include\math.h:
+
+mpglib.h:
+
+../include/lame.h:
+
+tabinit.h:
