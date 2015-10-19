@@ -4,6 +4,9 @@
 import sys
 import os
 import binascii
+import math
+
+PRINTHEADERCONTENTS = False
 
 def checkSync(data):
 	#Here we care about the first 11 bits
@@ -414,10 +417,13 @@ def setOriginal(data, value):
 	return	
 
 def getFrameSize(bitrate, samplerate, padding, layer):
+	#print((bitrate, samplerate, padding, layer))
 	if layer == 1:
-		size = (12 * bitrate / samplerate + padding) * 4
-	elif(layer==2 || layer==3):
-		size = 144 * bitrate / samplerate + padding
+	#	print("Calculating size Layer I")
+		size = math.floor((12 * (bitrate*1000 / samplerate) + padding) * 4)
+	elif(layer==2 or layer==3):
+	#	print("Calculating size Layer II(I)")
+		size = math.floor(144 * (bitrate*1000 / samplerate) + padding)
 	else:
 		size = None
 
@@ -427,75 +433,84 @@ def getHeaderData(data):
 	#Sync (11 bits)
 	#Check to ensure we have a string of 11 1's
 	if(checkSync(data)):
-		print("Sync successful")
+		if(PRINTHEADERCONTENTS):
+			print("Sync successful")
 	else:
 		print("Bad sync, header is invalid, exiting...")
-		return False
+		return None
 
 	#MPEG Version (2 bits)
 	ver = getVersion(data)
 	if ver is None:
 		print("Invalid Version, header is invalid, exiting...")
-		return False
+		return None
 	else:
-		print("MPEG Version: " + str(ver))	
+		if(PRINTHEADERCONTENTS):
+			print("MPEG Version: " + str(ver))	
 
 	#Layer Description (2 bit)
 	layer = getLayer(data)
 	if layer is None:
 		print("Invalid Layer, header is invalid.")
-		return False
+		return None
 	else:
-		print("Layer: " + str(layer))
+		if(PRINTHEADERCONTENTS):
+			print("Layer: " + str(layer))
 
 	#Protection Bit (1 bit)
 	protected =getProtection(data)
 	if(protected is None):
-		return False
-	if(protected):
-		print("CRC protected, 16bit CRC follows header")
-	else:
-		print("Not protected.")
+		return None
+	if(PRINTHEADERCONTENTS):
+		if(protected):
+			print("CRC protected, 16bit CRC follows header")
+		else:
+			print("Not protected.")
 
 	#Bitrate (value based on Version and Layer) (4 bits)
 	#will return bitrate in kbps
 	bitrate = getBitrate(data, ver, layer)
 	if(bitrate is not None):
-		if bitrate == "free":
-			print("Free format. Constant bitrate lower than allowable max")
-		else:
-			print("Bitrate: " + str(bitrate) + " kbps")
+		if(PRINTHEADERCONTENTS):
+			if bitrate == "free":
+				print("Free format. Constant bitrate lower than allowable max")
+			else:
+				print("Bitrate: " + str(bitrate) + " kbps")
 	else:
 		print("Invalid bitrate value, header is invalid")
-		return False
+		return None
 
 	#Sampling rate frequency (based on Version) (2 bits)
 	samplerate = getSampleRate(data, ver)
 	if(samplerate is not None):
-		print("Sample rate: " + str(samplerate) + " Hz")
+		if(PRINTHEADERCONTENTS):
+			print("Sample rate: " + str(samplerate) + " Hz")
 	else:
 		print("Sample rate malformated, header is invalid.")
-		return False
+		return None
 
 	#Padding (1 bit)
 	padding = getPadding(data)
 	if(padding is not None):
-		print("Padding bit: " + str(padding))
+		if(PRINTHEADERCONTENTS):
+			print("Padding bit: " + str(padding))
 	else:
 		print("Something went wrong reading padding bit")
-		return False
+		return None
 
 	#Private Bit (1 bit, can be used by us)
 	private = getPrivate(data)
-	print("Private bit: " + str(private))
+	if(PRINTHEADERCONTENTS):
+		print("Private bit: " + str(private))
 
 	#Channel Mode (2 bits)
 	mode = getMode(data, bitrate, layer)
 	if(mode is not None):
-		print("Mode is: " + mode)
+		if(PRINTHEADERCONTENTS):
+			print("Mode is: " + mode)
 	else:
 		print("Bad mode, invalid frame header, exiting...")
-		return False
+		return None
 
 
 	#Mode extension (2 bits) - I don't care about this
@@ -503,30 +518,58 @@ def getHeaderData(data):
 	#Copyright (1 bit)
 	copyright = getCopyright(data)
 	if(copyright is not None):
-		print("copyright bit: " + str(copyright))
+		if(PRINTHEADERCONTENTS):
+			print("copyright bit: " + str(copyright))
 	else:
 		print("Something went wrong reading padding bit")
-		return False
+		return None
 
 	#Original/Copy (1 bit)
 	original = getOriginal(data)
 	if(original is not None):
-		print("original bit: " + str(original))
+		if(PRINTHEADERCONTENTS):
+			print("original bit: " + str(original))
 	else:
 		print("Something went wrong reading padding bit")
-		return False
+		return None
 
 	#Emphasis (2 bits)
 
 
 	framesize = getFrameSize(bitrate, samplerate, padding, layer)
 	if(framesize is not None):
-		print("Frame size in bytes: " + framesize)
+		if(PRINTHEADERCONTENTS):
+			print("Frame size in bytes: " + str(framesize))
 	else:
 		print("Something went wrong while calculating framesize.")
-		return False
+		return None
 
-	return True
+	return framesize
+
+def readNextHeader(f, nextPos):
+	## read the first 4 bytes
+	##for i in range(0,4):
+	f.seek(nextPos)
+	data = f.read(4)
+	#printAsBinary(data)
+
+	if data == b'': #If we've reached the end of the file
+		return None
+
+	#for byte in data:
+	#	print(bin(byte))
+
+	offset = getHeaderData(data)
+
+	if(offset is not None):
+		if(PRINTHEADERCONTENTS):
+			print("Header read properly!")
+	else:
+		print("One or more fields were invalid.")
+		sys.exit(0)
+
+	return offset
+	##print(str(binascii.unhexlify(data))
 
 #def printAsBinary(byte):
 #	print(bin(int(binascii.hexlify(byte), 16))[2:].zfill(8))
@@ -538,19 +581,19 @@ except:
 	sys.exit(0)
 
 f = open(filename, 'rb')
-## read the first 4 bytes
-##for i in range(0,4):
-data = f.read(4)
-##printAsBinary(data)
+nextHeaderLoc = 0
+numFrames = 0
 
-for byte in data:
-	print(bin(byte))
+while(True):
+	#print("Attempting to read at offset: " + str(nextHeaderLoc))
+	size = readNextHeader(f, nextHeaderLoc)
 
-header = getHeaderData(data)
+	if(size is None):
+		print("End of file found. Exiting loop.")
+		break
 
-if(header):
-	print("Header read properly!")
-else:
-	print("One or more fields were invalid.")
+	numFrames = numFrames + 1
 
-##print(str(binascii.unhexlify(data))
+	nextHeaderLoc = nextHeaderLoc + size
+
+print("Read " + str(numFrames) + " frames.")
