@@ -1,0 +1,11 @@
+Bit string, left bit first, where “left” is the order in which bit strings are written in
+ISO/IEC 11172. Bit strings <are written as a string of 1s and OS within single quote
+marks, e.g. ‘1000 0001’. Blanks within a bit string are for ease of reading and have no
+significance.
+
+Frame header important pieces of information:
+- Sync bit sequence = '1111 1111 1111'
+
+- Can use the private_bit (unused by ISO/IEC)
+- Potentially copyright bit
+- original/copy bit

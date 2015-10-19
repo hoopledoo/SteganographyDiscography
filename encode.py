@@ -1,7 +1,13 @@
 import subprocess
+import sys
 
-infile = "200_Hertz_FSK_500bits.wav"
-outfile = "encoded.mp3"
+try:
+	infile = sys.argv[1]
+	outfile = sys.argv[2]
+except:
+	print("Provide input wav file and name for output file")
+	sys.exit(0);
+
 encodecmd = ["lame",infile,outfile]
 
 subprocess.call(encodecmd)
