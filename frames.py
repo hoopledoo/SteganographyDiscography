@@ -358,7 +358,7 @@ def setPrivate(f, data, value, headerStart):
 
 	f.seek(headerStart+2)
 	f.write(bytes([newByte3]))
-	return	
+	return bytes([data[0], data[1], newByte3, data[3]])
 
 def getMode(data, bitrate, layer):
 	#Here we care about the 25-26th bit
@@ -422,7 +422,7 @@ def setCopyright(f, data, value, headerStart):
 
 	f.seek(headerStart+3)
 	f.write(bytes([newByte4]))
-	return	
+	return bytes([data[0], data[1], data[2], newByte4])
 
 def getOriginal(data):
 	#Here we care about the 34th bit
@@ -446,7 +446,7 @@ def setOriginal(f, data, value, headerStart):
 
 	byte4 = data[3]
 	if value == 1: 
-		newByte4 = byte4 | 0x04 # Or with 0000 0100
+		newByte4 = byte4 | 0x04 #  Or with 0000 0100
 	elif value == 0:
 		newByte4 = byte4 & 0xfb # And with 1111 1011
 	else:
@@ -644,24 +644,24 @@ def addData(f, message, headerLocs):
 		#all the set methods are expecting: f, data, value, headerStart
 		try:
 			setp = message[posInBitArray]
-			setPrivate(f, data, setp, loc)
+			newData = setPrivate(f, data, setp, loc)
 		except IndexError:
 			print("End of data reached. Finished adding to mp3 file.")
-			break;	
+			break	
 
 		try:
 			setc = message[posInBitArray + 1]
-			setCopyright(f, data, setc, loc)
+			newData = setCopyright(f, newData, setc, loc)
 		except IndexError:
 			print("End of data reached. Finished adding to mp3 file.")
-			break;	
+			break	
 
 		try:
 			seto = message[posInBitArray + 2]
-			setOriginal(f, data, seto, loc)
+			setOriginal(f, newData, seto, loc)
 		except IndexError:
 			print("End of data reached. Finished adding to mp3 file.")
-			break;	
+			break	
 
 		#print("Attempting to set next 3 bits: " + str((setp, setc, seto)))
 		#increment position in bit array
@@ -671,7 +671,6 @@ def addData(f, message, headerLocs):
 
 def extractData(f, bytesAvailable, headerLocs):
 	res = []
-	print(headerLocs)
 	# loop through all headerlocations found earlier
 	for loc in headerLocs:
 		f.seek(loc)
@@ -686,7 +685,7 @@ def extractData(f, bytesAvailable, headerLocs):
 		res.append(getc)
 		res.append(geto)
 
-	print(res)
+	#print(res)
 	return frombits(res)
 
 #################### THIS IS THE START OF "MAIN" ###################
@@ -750,7 +749,7 @@ if(operation == "hide"):
 	dataToWrite = f.read(bytesAvailable)
 	f.close();
 	bitarray = tobits(dataToWrite)
-	print(bitarray)
+	# print(bitarray)
 	# loop through the bytes (3 bytes at a time) 
 	# from the file to be added (as a binary file)
  
@@ -781,3 +780,11 @@ elif(operation == "extract"):
 	f.write(message)
 	f.close()
 	print("Recovered data has been written to: " + outfile)
+
+
+#### SEEMS TO WRITE THE DATA properly
+#### BUT ON RECOVERY, IT'S COMPLETE GARBAGIO
+### WHAT'S THE DEAL? WILL WE EVER KNOW? Hopefully. 
+###EITHER:
+	# SOMETHING WENT WRONG WHEN WRITING (and the bits aren't flipped properly)
+	# SOMETHING WENT WRONG WHEN READING (bits read out of order or something?)
