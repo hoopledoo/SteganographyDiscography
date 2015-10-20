@@ -341,10 +341,26 @@ def getPrivate(data):
 
 	return
 
-def setPrivate(data, pvalue):
+def setPrivate(f, data, value, headerStart):
 	#Here we care about the 24th bit
 	# 0000 0000 0000 0000 0000 0001 0000 0000
-	return
+	byte3 = data[2]
+	if value == 1: 
+		newByte3 = byte3 | 0x01 # Or with 0000 0001
+	elif value == 0:
+		newByte3 = byte3 & 0xfe # And with 1111 1110
+	else:
+		print("Setting Private Failed, you shouldn't be here.")
+		print(value)
+
+
+	print("Writing: " + str(newByte3) + " which is "
+		+ str(bytes([newByte3])) + 
+		" at loc: " + str(headerStart + 2))
+
+	f.seek(headerStart+2)
+	f.write(bytes([newByte3]))
+	return	
 
 def getMode(data, bitrate, layer):
 	#Here we care about the 25-26th bit
@@ -390,10 +406,25 @@ def getCopyright(data):
 
 	return copyright
 
-def setCopyright(data, value):
+def setCopyright(f, data, value, headerStart):
 	#Here we care about the 33rd bit
 	# 0000 0000 0000 0000 0000 0000 0000 1000
-	return
+	byte4 = data[3]
+	if value == 1: 
+		newByte4 = byte4 | 0x08 # Or with 0000 1000
+	elif value == 0:
+		newByte4 = byte4 & 0xf7 # And with 1111 0111
+	else:
+		print("Setting Copyright Failed, you shouldn't be here.")
+		print(value)
+
+	print("Writing: " + str(newByte4) + " which is "
+		+ str(bytes([newByte4])) + 
+		" at loc: " + str(headerStart + 3))
+
+	f.seek(headerStart+3)
+	f.write(bytes([newByte4]))
+	return	
 
 def getOriginal(data):
 	#Here we care about the 34th bit
@@ -411,9 +442,24 @@ def getOriginal(data):
 
 	return original
 
-def setOriginal(data, value):
+def setOriginal(f, data, value, headerStart):
 	#Here we care about the 34th bit
 	# 0000 0000 0000 0000 0000 0000 0000 0100
+
+	byte4 = data[3]
+	if value == 1: 
+		newByte4 = byte4 | 0x04 # Or with 0000 0100
+	elif value == 0:
+		newByte4 = byte4 & 0xfb # And with 1111 1011
+	else:
+		print("Setting Original Failed, you shouldn't be here.")
+
+	print("Writing: " + str(newByte4) + " which is "
+		+ str(bytes([newByte4])) + 
+		" at loc: " + str(headerStart + 3))
+
+	f.seek(headerStart+3)
+	f.write(bytes([newByte4]))
 	return	
 
 def getFrameSize(bitrate, samplerate, padding, layer):
@@ -571,16 +617,51 @@ def readNextHeader(f, nextPos):
 	return offset
 	##print(str(binascii.unhexlify(data))
 
+def tobits(s):
+	result = []
+	for c in s:
+		bits = bin(ord(c))[2:]
+		bits = '00000000'[len(bits):] + bits
+		result.extend([int(b) for b in bits])
+	return result
+
+def addData(f, message, headerLocs):
+	posInBitArray = 0
+	for loc in headerLocs:
+		f.seek(loc)
+		data = f.read(4)
+
+		#all the set methods are expecting: f, data, value, headerStart
+		setp = message[posInBitArray]
+		setPrivate(f, data, setp, loc)
+
+		setc = message[posInBitArray + 1]
+		setCopyright(f, data, setc, loc)
+
+		seto = message[posInBitArray + 2]
+		setOriginal(f, data, seto, loc)
+
+		#print("Attempting to set next 3 bits: " + str((setp, setc, seto)))
+		#increment position in bit array
+		posInBitArray = posInBitArray + 3
+
+	return
+
+
+
+#################### THIS IS THE START OF "MAIN" ###################
+
 #def printAsBinary(byte):
 #	print(bin(int(binascii.hexlify(byte), 16))[2:].zfill(8))
 
 try:
-	filename = sys.argv[1]
+	mp3filename = sys.argv[1]
 except:
 	print("No filename specified, quitting")
 	sys.exit(0)
 
-f = open(filename, 'rb')
+f = open(mp3filename, 'rb')
+headerLocations = []
 nextHeaderLoc = 0
 numFrames = 0
 
@@ -592,8 +673,60 @@ while(True):
 		print("End of file found. Exiting loop.")
 		break
 
+	headerLocations.append(nextHeaderLoc)
 	numFrames = numFrames + 1
 
 	nextHeaderLoc = nextHeaderLoc + size
 
+f.close();
 print("Read " + str(numFrames) + " frames.")
+bytesAvailable = math.floor(3*numFrames/8)
+print("Can add " + str(bytesAvailable) + " bytes")
+
+#The process for adding or reading data is relatively simple.
+
+##### FOR HIDING DATA ######
+# First, determine the number of frames in the file (numFrames)
+
+# Then, figure out how many bits can be hidden in those frames
+# floor(3 bits/frame)(x frames)(1 byte/8bits) (bytesAvailable)
+
+# read that many bytes from the file to be added
+try:
+	operation = sys.argv[2]
+except:
+	print("No operation provide (expected \"hide\" or \"extract\").")
+	sys.exit(0)
+
+if(operation == "hide"):
+	print("Attempting to hide data")
+	try:
+		datafile = sys.argv[3]
+	except:
+		print("No data file path provided. Quitting...")
+		sys.exit(0)
+
+	f = open(datafile,'r')
+	dataToWrite = f.read(bytesAvailable)
+	f.close();
+	bitarray = tobits(dataToWrite)
+	#print(dataToWrite)
+	# loop through the bytes (3 bytes at a time) 
+	# from the file to be added (as a binary file)
+ 
+	f = open(mp3filename, 'r+b')
+	addData(f, bitarray, headerLocations)
+	print("Data should have been added properly")
+	f.close()
+
+elif(operation == "extract"):
+	print("Attempting to extract data")
+	try:
+		outfile = sys.argv[3]
+	except:
+		print("No output file path provided. Quitting...")
+		sys.exit(0)
+	##### FOR READING DATA ######
+	# loop through all headers and grab bits starting in the first frame
+	# From Private, Copyright, and Original bits
+	# discard any leftover bits at the end
