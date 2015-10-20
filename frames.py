@@ -671,21 +671,58 @@ def addData(f, message, headerLocs):
 
 def extractData(f, bytesAvailable, headerLocs):
 	res = []
+	consecZeros = 0
 	# loop through all headerlocations found earlier
 	for loc in headerLocs:
 		f.seek(loc)
 		data = f.read(4)
 
+		## Read the private bit and add to bitarray
 		getp = getPrivate(data)
-		getc = getCopyright(data)
-		geto = getOriginal(data)
-		#print((getp, getc, geto))
-
 		res.append(getp)
+
+		# Check to see if we've read a zero
+		if getp == 0:
+			consecZeros = consecZeros + 1
+		else:
+			consecZeros = 0
+
+		# If we've found eight consecutive 0s, stop reading
+		if consecZeros >= 8:
+			print("End of message found")
+			break
+
+		# Read the copyright bit and append to bitarray
+		getc = getCopyright(data)
 		res.append(getc)
+
+		#count consecutive zeros
+		if getc == 0:
+			consecZeros = consecZeros + 1
+		else:
+			consecZeros = 0
+
+		# If we've hit our eight 0, stop reading	
+		if consecZeros >= 8:
+				print("End of message found")
+				break
+
+		# read the original bit and append to bitarray
+		geto = getOriginal(data)
 		res.append(geto)
 
-	#print(res)
+		# count number of consecutive zeros
+		if geto == 0:
+			consecZeros = consecZeros + 1
+		else:
+			consecZeros = 0
+
+		# If we've hit our eigth 0, stop reading
+		if consecZeros >= 8:
+			print("End of message found")
+			break
+
+	## print((res, consecZeros))
 	return frombits(res)
 
 #################### THIS IS THE START OF "MAIN" ###################
@@ -746,10 +783,15 @@ if(operation == "hide"):
 		sys.exit(0)
 
 	f = open(datafile,'r')
-	dataToWrite = f.read(bytesAvailable)
+	dataToWrite = f.read(bytesAvailable-1)
 	f.close();
 	bitarray = tobits(dataToWrite)
-	# print(bitarray)
+
+	## ENSURE THE LAST BYTE IS A NULL BYTE
+	for i in range(8):
+		bitarray.append(0)
+
+	## print(bitarray)
 	# loop through the bytes (3 bytes at a time) 
 	# from the file to be added (as a binary file)
  
@@ -782,9 +824,5 @@ elif(operation == "extract"):
 	print("Recovered data has been written to: " + outfile)
 
 
-#### SEEMS TO WRITE THE DATA properly
-#### BUT ON RECOVERY, IT'S COMPLETE GARBAGIO
-### WHAT'S THE DEAL? WILL WE EVER KNOW? Hopefully. 
-###EITHER:
-	# SOMETHING WENT WRONG WHEN WRITING (and the bits aren't flipped properly)
-	# SOMETHING WENT WRONG WHEN READING (bits read out of order or something?)
+### In order to ensure we know when the data stops, we'll be sure to
+### write a NULL byte after out message (and look for it when reading)
