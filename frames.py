@@ -339,8 +339,6 @@ def getPrivate(data):
 
 	return private
 
-	return
-
 def setPrivate(f, data, value, headerStart):
 	#Here we care about the 24th bit
 	# 0000 0000 0000 0000 0000 0001 0000 0000
@@ -354,9 +352,9 @@ def setPrivate(f, data, value, headerStart):
 		print(value)
 
 
-	print("Writing: " + str(newByte3) + " which is "
-		+ str(bytes([newByte3])) + 
-		" at loc: " + str(headerStart + 2))
+	#print("Writing: " + str(newByte3) + " which is "
+	#	+ str(bytes([newByte3])) + 
+	#	" at loc: " + str(headerStart + 2))
 
 	f.seek(headerStart+2)
 	f.write(bytes([newByte3]))
@@ -418,9 +416,9 @@ def setCopyright(f, data, value, headerStart):
 		print("Setting Copyright Failed, you shouldn't be here.")
 		print(value)
 
-	print("Writing: " + str(newByte4) + " which is "
-		+ str(bytes([newByte4])) + 
-		" at loc: " + str(headerStart + 3))
+	#print("Writing: " + str(newByte4) + " which is "
+	#	+ str(bytes([newByte4])) + 
+	#	" at loc: " + str(headerStart + 3))
 
 	f.seek(headerStart+3)
 	f.write(bytes([newByte4]))
@@ -454,9 +452,9 @@ def setOriginal(f, data, value, headerStart):
 	else:
 		print("Setting Original Failed, you shouldn't be here.")
 
-	print("Writing: " + str(newByte4) + " which is "
-		+ str(bytes([newByte4])) + 
-		" at loc: " + str(headerStart + 3))
+	#print("Writing: " + str(newByte4) + " which is "
+	#	+ str(bytes([newByte4])) + 
+	#	" at loc: " + str(headerStart + 3))
 
 	f.seek(headerStart+3)
 	f.write(bytes([newByte4]))
@@ -625,6 +623,18 @@ def tobits(s):
 		result.extend([int(b) for b in bits])
 	return result
 
+def frombits(bits):
+	chars = []
+	for b in range(int(len(bits) / 8)):
+		byte = bits[b*8:(b+1)*8]
+		chars.append(chr(int(''.join([str(bit) for bit in byte]), 2)))
+	return ''.join(chars)
+
+## Method that takes a message (in the form of a bit array)
+## and a file and an array of header locations for that file
+## and then inserts data into the available 
+## private, copyright, and original bits
+
 def addData(f, message, headerLocs):
 	posInBitArray = 0
 	for loc in headerLocs:
@@ -632,14 +642,26 @@ def addData(f, message, headerLocs):
 		data = f.read(4)
 
 		#all the set methods are expecting: f, data, value, headerStart
-		setp = message[posInBitArray]
-		setPrivate(f, data, setp, loc)
+		try:
+			setp = message[posInBitArray]
+			setPrivate(f, data, setp, loc)
+		except IndexError:
+			print("End of data reached. Finished adding to mp3 file.")
+			break;	
 
-		setc = message[posInBitArray + 1]
-		setCopyright(f, data, setc, loc)
+		try:
+			setc = message[posInBitArray + 1]
+			setCopyright(f, data, setc, loc)
+		except IndexError:
+			print("End of data reached. Finished adding to mp3 file.")
+			break;	
 
-		seto = message[posInBitArray + 2]
-		setOriginal(f, data, seto, loc)
+		try:
+			seto = message[posInBitArray + 2]
+			setOriginal(f, data, seto, loc)
+		except IndexError:
+			print("End of data reached. Finished adding to mp3 file.")
+			break;	
 
 		#print("Attempting to set next 3 bits: " + str((setp, setc, seto)))
 		#increment position in bit array
@@ -647,7 +669,25 @@ def addData(f, message, headerLocs):
 
 	return
 
+def extractData(f, bytesAvailable, headerLocs):
+	res = []
+	print(headerLocs)
+	# loop through all headerlocations found earlier
+	for loc in headerLocs:
+		f.seek(loc)
+		data = f.read(4)
 
+		getp = getPrivate(data)
+		getc = getCopyright(data)
+		geto = getOriginal(data)
+		#print((getp, getc, geto))
+
+		res.append(getp)
+		res.append(getc)
+		res.append(geto)
+
+	print(res)
+	return frombits(res)
 
 #################### THIS IS THE START OF "MAIN" ###################
 
@@ -710,7 +750,7 @@ if(operation == "hide"):
 	dataToWrite = f.read(bytesAvailable)
 	f.close();
 	bitarray = tobits(dataToWrite)
-	#print(dataToWrite)
+	print(bitarray)
 	# loop through the bytes (3 bytes at a time) 
 	# from the file to be added (as a binary file)
  
@@ -726,7 +766,18 @@ elif(operation == "extract"):
 	except:
 		print("No output file path provided. Quitting...")
 		sys.exit(0)
+
 	##### FOR READING DATA ######
 	# loop through all headers and grab bits starting in the first frame
 	# From Private, Copyright, and Original bits
 	# discard any leftover bits at the end
+
+	f = open(mp3filename, 'rb')
+	message = extractData(f, bytesAvailable, headerLocations)	
+	f.close()
+
+	print(message)
+	f = open(outfile, 'w')
+	f.write(message)
+	f.close()
+	print("Recovered data has been written to: " + outfile)
